@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from rest_framework import viewsets, permissions, generics
 from .models import Task, Team
 from .serializers import TaskSerializer, TeamSerializer, RegisterSerializer
+from django_filters.rest_framework import DjangoFilterBackend
 
 
 class TeamViewSet(viewsets.ModelViewSet):
@@ -15,6 +16,9 @@ class TaskViewSet(viewsets.ModelViewSet):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['completed', 'team', 'due_date']
+
 
     def get_queryset(self):
         user = self.request.user
