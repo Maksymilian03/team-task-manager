@@ -28,6 +28,22 @@ class TaskSerializer(serializers.ModelSerializer):
         queryset=Team.objects.all(), write_only=True, source='team'
     )
 
+    def validate_status(self, value):
+        user = self.context['request'].user
+        if value == 'done' and not user.is_staff:
+            raise serializers.ValidationError("Tylko administrator może oznaczyć zadanie jako 'done'.")
+        return value
+    
+    def create(self, validated_data):
+        if validated_data.get("status") == "done":
+            validated_data["completed"] = True
+        return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        if validated_data.get("status") == "done":
+            validated_data["completed"] = True
+        return super().update(instance, validated_data)
+
     class Meta:
         model = Task
         fields = ['id', 'title', 'description', 'assigned_to', 'assigned_to_id', 'team', 'team_id', 'due_date', 'completed', 'status']
