@@ -16,6 +16,12 @@ class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_staff:
+            return Task.objects.all()
+        return Task.objects.filter(assigned_to=user)
+
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
