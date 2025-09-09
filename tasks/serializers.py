@@ -19,11 +19,18 @@ class TeamSerializer(serializers.ModelSerializer):
 
 class TaskSerializer(serializers.ModelSerializer):
     assigned_to = UserSerializer(read_only=True)
+    assigned_to_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), write_only=True, source='assigned_to'
+    )
+
     team = TeamSerializer(read_only=True)
+    team_id = serializers.PrimaryKeyRelatedField(
+        queryset=Team.objects.all(), write_only=True, source='team'
+    )
 
     class Meta:
         model = Task
-        fields = ['id', 'title', 'description', 'assigned_to', 'team', 'due_date', 'completed']
+        fields = ['id', 'title', 'description', 'assigned_to', 'assigned_to_id', 'team', 'team_id', 'due_date', 'completed']
 
 
 class RegisterSerializer(serializers.ModelSerializer):
