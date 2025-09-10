@@ -1,8 +1,8 @@
 from django.shortcuts import render
 from django.contrib.auth.models import User
 from rest_framework import viewsets, permissions, generics
-from .models import Task, Team, Category
-from .serializers import TaskSerializer, TeamSerializer, RegisterSerializer, CategorySerializer
+from .models import Task, Team, Category, Comment, TaskLog
+from .serializers import TaskSerializer, TeamSerializer, RegisterSerializer, CategorySerializer, CommentSerializer, TaskLogSerializer
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -49,3 +49,18 @@ class TaskViewSet(viewsets.ModelViewSet):
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
+
+
+class CommentViewSet(viewsets.ModelViewSet):
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
+
+
+class TaskLogViewSet(viewsets.ModelViewSet):
+    queryset = TaskLog.objects.all()
+    serializer_class = TaskLogSerializer
+    permission_classes = [permissions.IsAuthenticated]

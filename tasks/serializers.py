@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Task, Team, Category
+from .models import Task, Team, Category, Comment, TaskLog
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -49,6 +49,20 @@ class TaskSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
     
     def update(self, instance, validated_data):
+        user = self.context['request'].user
+
+        for field in ['title', 'description', 'status']:
+            if field in validated_data:
+                old_value = getattr(instance, field)
+                new_value = validated_data[field]
+                if old_value != new_value:
+                    TaskLog.objects.create(
+                        task=instance,
+                        user=user,
+                        change_type=field,
+                        old_value=old_value,
+                        new_value=new_value,)
+
         if validated_data.get("status") == "done":
             validated_data["completed"] = True
         return super().update(instance, validated_data)
@@ -72,3 +86,18 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
         
         return user
+    
+class CommentSerializer(serializers.ModelSerializer):
+    author = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = ['id', 'task', 'author', 'content', 'created_at']
+
+
+class TaskLogSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = TaskLog
+        fields = ['id', 'task', 'user', 'change_type', 'old_value', 'new_value', 'timestamp']
