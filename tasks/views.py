@@ -1,8 +1,8 @@
 from django.shortcuts import render
 from django.contrib.auth.models import User
 from rest_framework import viewsets, permissions, generics
-from .models import Task, Team
-from .serializers import TaskSerializer, TeamSerializer, RegisterSerializer
+from .models import Task, Team, Category
+from .serializers import TaskSerializer, TeamSerializer, RegisterSerializer, CategorySerializer
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -14,6 +14,12 @@ from .permissions import IsAssignedOrAdmin
 class TeamViewSet(viewsets.ModelViewSet):
     queryset = Team.objects.all()
     serializer_class = TeamSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
     permission_classes = [permissions.IsAuthenticated]
 
 

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Task, Team
+from .models import Task, Team, Category
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -17,6 +17,12 @@ class TeamSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'members']
 
 
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'name']
+
+
 class TaskSerializer(serializers.ModelSerializer):
     assigned_to = UserSerializer(read_only=True)
     assigned_to_id = serializers.PrimaryKeyRelatedField(
@@ -27,7 +33,10 @@ class TaskSerializer(serializers.ModelSerializer):
     team_id = serializers.PrimaryKeyRelatedField(
         queryset=Team.objects.all(), write_only=True, source='team'
     )
-
+    category = CategorySerializer(read_only=True)
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), write_only=True, source='category'
+    )
     def validate_status(self, value):
         user = self.context['request'].user
         if value == 'done' and not user.is_staff:
@@ -46,7 +55,7 @@ class TaskSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Task
-        fields = ['id', 'title', 'description', 'assigned_to', 'assigned_to_id', 'team', 'team_id', 'due_date', 'completed', 'status']
+        fields = ['id', 'title', 'description', 'assigned_to', 'assigned_to_id', 'team', 'team_id', 'due_date', 'completed', 'status', 'category', 'category_id']
 
 
 class RegisterSerializer(serializers.ModelSerializer):

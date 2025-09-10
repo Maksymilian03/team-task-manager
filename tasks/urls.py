@@ -1,12 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import TaskViewSet, TeamViewSet, RegisterView
+from .views import TaskViewSet, TeamViewSet, RegisterView, CategoryViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 
 router = DefaultRouter()
 router.register(r'teams', TeamViewSet)
 router.register(r'tasks', TaskViewSet)
+router.register(r'categories', CategoryViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
