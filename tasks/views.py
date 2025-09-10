@@ -28,7 +28,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
     permission_classes = [permissions.IsAuthenticated, IsAssignedOrAdmin]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['completed', 'team', 'due_date', 'status']
+    filterset_fields = ['completed', 'team', 'due_date', 'status', 'category']
 
 
     def get_queryset(self):
