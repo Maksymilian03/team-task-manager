@@ -1,9 +1,19 @@
 from rest_framework import permissions
 
-class IsAssignedOrAdmin(permissions.BasePermission):
+class IsTeamManagerOrAssigned(permissions.BasePermission):
 
     def has_object_permission(self, request, view, obj):
-        if request.user.is_staff:
+        user = request.user
+
+        if user.is_superuser:
             return True
 
-        return obj.assigned_to == request.user
+        if not hasattr(user, 'profile'):
+            return False
+
+        profile = user.profile
+
+        if profile.role == 'manager' and obj.team == profile.team:
+            return True
+        
+        return obj.assigned_to == user

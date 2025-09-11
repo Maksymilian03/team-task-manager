@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Task, Team, Category, Comment, TaskLog, Profile
+from taggit.serializers import TagListSerializerField, TaggitSerializer
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -12,7 +13,10 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class TeamSerializer(serializers.ModelSerializer):
-    members = UserSerializer(many=True, read_only=True)
+    members = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=User.objects.all()        
+    )
 
     class Meta:
         model = Team
@@ -25,7 +29,8 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 
-class TaskSerializer(serializers.ModelSerializer):
+class TaskSerializer(TaggitSerializer, serializers.ModelSerializer):
+    tags = TagListSerializerField()
     assigned_to = UserSerializer(read_only=True)
     assigned_to_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), write_only=True, source='assigned_to'
@@ -72,7 +77,7 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = ['id', 'title', 'description', 'assigned_to', 'assigned_to_id', 'team',
-                   'team_id', 'due_date', 'completed', 'status', 'category', 'category_id', 'priority']
+                   'team_id', 'due_date', 'completed', 'status', 'category', 'category_id', 'priority', 'tags']
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -108,3 +113,12 @@ class TaskLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskLog
         fields = ['id', 'task', 'user', 'change_type', 'old_value', 'new_value', 'timestamp']
+
+
+class ProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+
+    class Meta:
+        model = Profile
+        fields = ['id', 'user', 'role', 'team']

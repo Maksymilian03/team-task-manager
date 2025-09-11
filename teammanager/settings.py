@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'tasks',
     'django_filters',
+    'taggit',
 ]
 
 MIDDLEWARE = [

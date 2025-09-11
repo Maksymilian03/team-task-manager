@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import TaskViewSet, TeamViewSet, RegisterView, CategoryViewSet, CommentViewSet, TaskLogViewSet, UserViewSet
+from .views import TaskViewSet, TeamViewSet, RegisterView, CategoryViewSet, CommentViewSet, TaskLogViewSet, UserViewSet, ProfileViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 
@@ -10,7 +10,8 @@ router.register(r'tasks', TaskViewSet)
 router.register(r'categories', CategoryViewSet)
 router.register(r'comments', CommentViewSet)
 router.register(r'logs', TaskLogViewSet)
-router.register(r'user', UserViewSet)
+router.register(r'users', UserViewSet)
+router.register(r'profiles', ProfileViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
