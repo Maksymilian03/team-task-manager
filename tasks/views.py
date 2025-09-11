@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.contrib.auth.models import User
 from rest_framework import viewsets, permissions, generics
 from .models import Task, Team, Category, Comment, TaskLog
-from .serializers import TaskSerializer, TeamSerializer, RegisterSerializer, CategorySerializer, CommentSerializer, TaskLogSerializer
+from .serializers import TaskSerializer, TeamSerializer, RegisterSerializer, CategorySerializer, CommentSerializer, TaskLogSerializer, UserSerializer
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -10,6 +10,11 @@ from django.db.models import Count
 from .permissions import IsAssignedOrAdmin
 
 
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAdminUser]
+    
 
 class TeamViewSet(viewsets.ModelViewSet):
     queryset = Team.objects.all()
@@ -33,7 +38,7 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_staff:
+        if user.profile.role == 'manager':
             return Task.objects.all()
         return Task.objects.filter(assigned_to=user)
     

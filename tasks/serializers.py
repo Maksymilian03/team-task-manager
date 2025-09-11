@@ -1,12 +1,14 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Task, Team, Category, Comment, TaskLog
+from .models import Task, Team, Category, Comment, TaskLog, Profile
 
 
 class UserSerializer(serializers.ModelSerializer):
+    role = serializers.CharField(source='profile.role')
+    
     class Meta:
         model = User
-        fields = ['id', 'username']
+        fields = ['id', 'username', 'role']
 
 
 class TeamSerializer(serializers.ModelSerializer):
@@ -75,16 +77,20 @@ class TaskSerializer(serializers.ModelSerializer):
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
+    role = serializers.ChoiceField(choices=Profile.ROLE_CHOICES, write_only=True)
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'password']
+        fields = ['id', 'username', 'password', 'role']
 
     def create(self, validated_data):
+        role = validated_data.pop('role')
         user = User.objects.create_user(
             username=validated_data['username'],
             password=validated_data['password']
         )
+
+        Profile.objects.create(user=user, role=role)
         
         return user
     

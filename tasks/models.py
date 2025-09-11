@@ -65,3 +65,16 @@ class TaskLog(models.Model):
     def __str__(self):
         return f"Zmiana {self.change_type} przez {self.user} - ({self.timestamp})"
     
+
+class Profile(models.Model):
+    ROLE_CHOICES = (
+        ('manger', 'Menedżer'),
+        ('employee', 'Prawcownik'),
+    )
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='employee')
+
+    def __str__(self):
+        return f"{self.user.username} - ({self.role})"
+    
