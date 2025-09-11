@@ -69,7 +69,8 @@ class TaskSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Task
-        fields = ['id', 'title', 'description', 'assigned_to', 'assigned_to_id', 'team', 'team_id', 'due_date', 'completed', 'status', 'category', 'category_id']
+        fields = ['id', 'title', 'description', 'assigned_to', 'assigned_to_id', 'team',
+                   'team_id', 'due_date', 'completed', 'status', 'category', 'category_id', 'priority']
 
 
 class RegisterSerializer(serializers.ModelSerializer):

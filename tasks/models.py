@@ -18,6 +18,12 @@ class Category(models.Model):
     
     
 class Task(models.Model):
+    PRIORITY_CHOICE = [
+        ('low', 'Niski'),
+        ('medium', 'Sredni'),
+        ('high', 'Wysoki'),
+    ]
+
     STATUS_CHOICE = [
         ('todo', 'Do zrobienia'),
         ('in_progress', 'W trakcie'),
@@ -31,6 +37,7 @@ class Task(models.Model):
     completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICE, default='todo')
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICE, default='medium')
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks')
 
     def __str__(self):
