@@ -8,6 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Count
 from .permissions import IsTeamManagerOrAssigned
+from .utils import send_task_notification
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -59,7 +60,11 @@ class TaskViewSet(viewsets.ModelViewSet):
 
         summary = queryset.values('status').annotate(count=Count('id'))
         return Response(summary)
-
+    
+    def perform_create(self, serializer):
+        task = serializer.save()
+        if task.assigned_to and task.assigned_to.email:  
+            send_task_notification(task, task.assigned_to.email)
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
