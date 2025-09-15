@@ -81,3 +81,15 @@ class Profile(models.Model):
     def __str__(self):
         return f"{self.user.username} - ({self.role}), team: {self.team}"
     
+
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notification')
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    read = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.message[:20]}"
+
+ 
+    

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Task, Team, Category, Comment, TaskLog, Profile
+from .models import Task, Team, Category, Comment, TaskLog, Profile, Notification
 from taggit.serializers import TagListSerializerField, TaggitSerializer
 
 
@@ -123,3 +123,9 @@ class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = ['id', 'user', 'role', 'team']
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'message', 'created_at', 'read']

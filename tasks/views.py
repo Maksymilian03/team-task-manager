@@ -1,8 +1,8 @@
 from django.shortcuts import render
 from django.contrib.auth.models import User
 from rest_framework import viewsets, permissions, generics
-from .models import Task, Team, Category, Comment, TaskLog, Profile
-from .serializers import TaskSerializer, TeamSerializer, RegisterSerializer, CategorySerializer, CommentSerializer, TaskLogSerializer, UserSerializer, ProfileSerializer
+from .models import Task, Team, Category, Comment, TaskLog, Profile, Notification
+from .serializers import TaskSerializer, TeamSerializer, RegisterSerializer, CategorySerializer, CommentSerializer, TaskLogSerializer, UserSerializer, ProfileSerializer, NotificationSerializer
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -66,6 +66,11 @@ class TaskViewSet(viewsets.ModelViewSet):
         if task.assigned_to and task.assigned_to.email:  
             send_task_notification(task, task.assigned_to.email)
 
+        if task.assigned_to:
+            Notification.objects.create(
+                user=task.assigned_to, message=f"Otrzymałeś nowe zadanie: {task.title}" 
+            )
+
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
@@ -93,3 +98,19 @@ class ProfileViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer): 
         serializer.save()
+
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user).order_by('-created_at')
+    
+    @action(detail=True, methods=['post'], url_path='mark-as-read')
+    def mark_as_read(self, request, pk=None):
+        notification = self.get_object()
+        notification.read = True
+        notification.save()
+
+        return Response({"status": "marked as read"}, status=status.HTTP_200_OK)
