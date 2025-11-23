@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="pl" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager – panel webowy</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body {
+            background-color: var(--bs-dark-bg-subtle);
+        }
+        .tasks-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .log {
+            max-height: 220px;
+            overflow-y: auto;
+            background: var(--bs-tertiary-bg);
+            padding: 0.8rem;
+            border-radius: var(--bs-border-radius);
+            font-size: 0.85rem;
+            font-family: monospace;
+        }
+        .notification.unread {
+            border-left: 3px solid var(--bs-info);
+            padding-left: 0.7rem;
+        }
+        .notification.read {
+            opacity: 0.7;
+        }
+        .toast.show {
+            opacity: 1 !important;
+            transform: translateY(0) !important;
+        }
+        .task-card .actions {
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+        }
+        .task-card:hover .actions {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div id="toast" class="toast position-fixed top-0 end-0 m-3" role="alert" aria-live="assertive" aria-atomic="true" style="opacity: 0; transform: translateY(-10px); transition: opacity .3s ease, transform .3s ease; z-index: 1055;">
+        <div class="d-flex">
+            <div class="toast-body"></div>
+            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+
+    <header class="p-3 mb-3 border-bottom">
+        <div class="container-fluid">
+            <div class="d-flex flex-wrap align-items-center justify-content-between">
+                <a href="/" class="d-flex align-items-center mb-2 mb-lg-0 text-white text-decoration-none">
+                    <h1 class="fs-4">Task Manager <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">praca licencjacka</span></h1>
+                </a>
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 dropdown">
+                        <a href="#" class="d-block link-light text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle fs-5"></i>
+                            <span id="userInfo" class="ms-2">Nie zalogowano</span>
+                        </a>
+                        <ul class="dropdown-menu text-small shadow">
+                            <li><button id="logoutBtn" class="dropdown-item" disabled><i class="bi bi-box-arrow-right me-2"></i>Wyloguj</button></li>
+                            <li><button id="refreshBtn" class="dropdown-item" disabled><i class="bi bi-arrow-clockwise me-2"></i>Odśwież token</button></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'login' %}"><i class="bi bi-shield-lock me-2"></i>Panel logowania Django</a></li>
+                        </ul>
+                    </div>
+                    <button onclick="window.location.reload()" class="btn btn-outline-secondary ms-3" title="Odśwież UI"><i class="bi bi-arrow-repeat"></i></button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container-fluid">
+        <div class="row g-4">
+            <!-- Left Column -->
+            <div class="col-lg-4 col-xl-3">
+                <div class="vstack gap-4">
+                    <div class="card" id="authSection">
+                        <div class="card-body">
+                            <h2 class="card-title fs-5">Autoryzacja JWT</h2>
+                            <form id="loginForm">
+                                <div class="mb-2"><label for="username" class="form-label">Login</label><input type="text" id="username" class="form-control" required></div>
+                                <div class="mb-3"><label for="password" class="form-label">Hasło</label><input type="password" id="password" class="form-control" required></div>
+                                <button type="submit" class="btn btn-primary w-100">Zaloguj się</button>
+                            </form>
+                            <p class="text-body-secondary small mt-3 mb-0">Tokeny zapisywane są w localStorage wyłącznie w tej przeglądarce.</p>
+                        </div>
+                    </div>
+
+                    <div class="card" id="registerSection">
+                        <div class="card-body">
+                            <h2 class="card-title fs-5">Rejestracja</h2>
+                            <form id="registerForm">
+                                <div class="mb-2"><label class="form-label">Nazwa użytkownika</label><input type="text" id="registerUsername" class="form-control" required></div>
+                                <div class="mb-2"><label class="form-label">E-mail</label><input type="email" id="registerEmail" class="form-control" required></div>
+                                <div class="mb-2"><label class="form-label">Hasło</label><input type="password" id="registerPassword" class="form-control" required></div>
+                                <div class="mb-3"><label class="form-label">Rola</label><select id="registerRole" class="form-select"><option value="employee">Pracownik</option><option value="manager">Menedżer</option></select></div>
+                                <button type="submit" class="btn btn-secondary w-100">Utwórz konto</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body">
+                            <h2 class="card-title fs-5">Filtry zadań</h2>
+                            <form id="filterForm">
+                                <div class="mb-2"><label class="form-label">Status</label><select id="filterStatus" class="form-select"></select></div>
+                                <div class="mb-2"><label class="form-label">Priorytet</label><select id="filterPriority" class="form-select"></select></div>
+                                <div class="mb-2"><label class="form-label">Zespół</label><select id="filterTeam" class="form-select"></select></div>
+                                <div class="mb-3"><label class="form-label">Kategoria</label><select id="filterCategory" class="form-select"></select></div>
+                                <button type="submit" class="btn btn-primary w-100">Zastosuj filtr</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body">
+                             <h2 class="card-title fs-5">Integracja Google</h2>
+                            <p class="text-body-secondary small">Po zalogowaniu kliknij przycisk, aby przejść do przepływu OAuth.</p>
+                            <button id="googleBtn" class="btn btn-secondary w-100" disabled><i class="bi bi-google me-2"></i>Połącz konto Google</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Column -->
+            <div class="col-lg-8 col-xl-6">
+                <div class="card">
+                    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <h2 class="card-title fs-5 mb-0">Zadania</h2>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Widok zadań" id="taskViewToggle">
+                                <button type="button" class="btn btn-outline-primary active" data-task-view="active">Aktywne</button>
+                                <button type="button" class="btn btn-outline-secondary" data-task-view="archived">Zakończone</button>
+                            </div>
+                            <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#addTaskCollapse" aria-expanded="false" aria-controls="addTaskCollapse">
+                                <i class="bi bi-plus-lg me-1"></i> Dodaj zadanie
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="collapse" id="addTaskCollapse">
+                            <div class="card card-body mb-4 bg-body-tertiary">
+                                <form id="taskForm">
+                                    <div class="mb-2"><label class="form-label">Tytuł</label><input type="text" id="taskTitle" class="form-control" required></div>
+                                    <div class="mb-2"><label class="form-label">Opis</label><textarea id="taskDescription" class="form-control"></textarea></div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-2"><label class="form-label">ID przypisanego</label><input type="number" id="taskAssignedId" placeholder="np. 1" class="form-control" required></div>
+                                        <div class="col-md-6 mb-2"><label class="form-label">Zespół</label><select id="taskTeam" class="form-select" required></select></div>
+                                    </div>
+                                    <div class="mb-2"><label class="form-label">Data zakończenia</label><input type="datetime-local" id="taskDue" class="form-control" required></div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-2"><label class="form-label">Kategoria</label><select id="taskCategory" class="form-select"></select></div>
+                                        <div class="col-md-6 mb-2"><label class="form-label">Priorytet</label><select id="taskPriority" class="form-select"></select></div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-2"><label class="form-label">Status</label><select id="taskStatus" class="form-select"></select></div>
+                                        <div class="col-md-6 mb-2"><label class="form-label">Tagi (po przecinku)</label><input type="text" id="taskTags" placeholder="np. backend, pilne" class="form-control"></div>
+                                    </div>
+                                    <div class="mb-1 text-body-secondary small">Priorytety i statusy pochodzą z konfiguracji administratora.</div>
+                                    <button type="submit" class="btn btn-success w-100">Utwórz zadanie</button>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="tasks-list" id="tasksActive"></div>
+                        <div class="tasks-list d-none" id="tasksArchived"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="col-lg-12 col-xl-3">
+                <div class="vstack gap-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h2 class="card-title fs-5 mb-0">Powiadomienia</h2>
+                            <div class="btn-group">
+                                <button id="refreshNotificationsBtn" class="btn btn-sm btn-outline-secondary" disabled title="Odśwież"><i class="bi bi-arrow-clockwise"></i></button>
+                                <button id="markAllNotificationsBtn" class="btn btn-sm btn-outline-secondary" disabled title="Oznacz jako przeczytane"><i class="bi bi-check2-all"></i></button>
+                            </div>
+                        </div>
+                        <ul class="list-group list-group-flush" id="notificationsList" style="max-height: 300px; overflow-y: auto;"></ul>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body">
+                            <h2 class="card-title fs-5">Komentarze</h2>
+                            <p id="commentInfo" class="text-body-secondary small">Wybierz zadanie, aby podejrzeć komentarze.</p>
+                            <ul class="list-group list-group-flush" id="commentsList" style="max-height: 250px; overflow-y: auto;"></ul>
+                            <form id="commentForm" class="collapse mt-3">
+                                <div class="mb-2"><label class="form-label">Nowy komentarz</label><textarea id="commentContent" class="form-control" required></textarea></div>
+                                <button type="submit" class="btn btn-secondary w-100">Dodaj komentarz</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body">
+                            <h2 class="card-title fs-5">Log operacji</h2>
+                            <div id="activityLog" class="log">Czekam na pierwsze zdarzenie…</div>
+                        </div>
+                    </div>
+                    <div class="card d-none" id="adminPanel">
+                        <div class="card-body">
+                            <h2 class="card-title fs-5">Panel administratora</h2>
+                            <p class="text-body-secondary small mb-3">Dostęp dla użytkowników z uprawnieniami administratora.</p>
+                            <div class="accordion" id="adminAccordion">
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="headingTeams">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTeams" aria-expanded="false" aria-controls="collapseTeams">
+                                            Dodaj zespół
+                                        </button>
+                                    </h2>
+                                    <div id="collapseTeams" class="accordion-collapse collapse" data-bs-parent="#adminAccordion">
+                                        <div class="accordion-body">
+                                            <form id="createTeamForm">
+                                                <div class="mb-2"><label class="form-label">Nazwa zespołu</label><input type="text" id="newTeamName" class="form-control" required></div>
+                                                <div class="mb-3"><label class="form-label">Członkowie (ID po przecinku)</label><input type="text" id="newTeamMembers" class="form-control" placeholder="np. 1,2,3"></div>
+                                                <button type="submit" class="btn btn-primary w-100 btn-sm">Dodaj zespół</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="headingCategories">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCategories" aria-expanded="false" aria-controls="collapseCategories">
+                                            Dodaj kategorię
+                                        </button>
+                                    </h2>
+                                    <div id="collapseCategories" class="accordion-collapse collapse" data-bs-parent="#adminAccordion">
+                                        <div class="accordion-body">
+                                            <form id="createCategoryForm">
+                                                <div class="mb-3"><label class="form-label">Nazwa kategorii</label><input type="text" id="newCategoryName" class="form-control" required></div>
+                                                <button type="submit" class="btn btn-primary w-100 btn-sm">Dodaj kategorię</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="headingStatuses">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseStatuses" aria-expanded="false" aria-controls="collapseStatuses">
+                                            Dodaj status
+                                        </button>
+                                    </h2>
+                                    <div id="collapseStatuses" class="accordion-collapse collapse" data-bs-parent="#adminAccordion">
+                                        <div class="accordion-body">
+                                            <form id="createStatusForm">
+                                                <div class="mb-2"><label class="form-label">Wartość systemowa</label><input type="text" id="newStatusValue" class="form-control" placeholder="np. in_review" required></div>
+                                                <div class="mb-3"><label class="form-label">Etykieta</label><input type="text" id="newStatusLabel" class="form-control" placeholder="np. W recenzji" required></div>
+                                                <button type="submit" class="btn btn-primary w-100 btn-sm">Dodaj status</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="headingPriorities">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePriorities" aria-expanded="false" aria-controls="collapsePriorities">
+                                            Dodaj priorytet
+                                        </button>
+                                    </h2>
+                                    <div id="collapsePriorities" class="accordion-collapse collapse" data-bs-parent="#adminAccordion">
+                                        <div class="accordion-body">
+                                            <form id="createPriorityForm">
+                                                <div class="mb-2"><label class="form-label">Wartość systemowa</label><input type="text" id="newPriorityValue" class="form-control" placeholder="np. urgent" required></div>
+                                                <div class="mb-3"><label class="form-label">Etykieta</label><input type="text" id="newPriorityLabel" class="form-control" placeholder="np. Krytyczny" required></div>
+                                                <button type="submit" class="btn btn-primary w-100 btn-sm">Dodaj priorytet</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="headingUsers">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseUsers" aria-expanded="false" aria-controls="collapseUsers">
+                                            Zarządzanie użytkownikami
+                                        </button>
+                                    </h2>
+                                    <div id="collapseUsers" class="accordion-collapse collapse" data-bs-parent="#adminAccordion">
+                                        <div class="accordion-body">
+                                            <h3 class="h6">Dodaj nowego użytkownika</h3>
+                                            <form id="createUserForm">
+                                                <div class="row">
+                                                    <div class="col-md-6 mb-2"><label class="form-label">Nazwa użytkownika</label><input type="text" id="newUserUsername" class="form-control" required></div>
+                                                    <div class="col-md-6 mb-2"><label class="form-label">E-mail</label><input type="email" id="newUserEmail" class="form-control" required></div>
+                                                </div>
+                                                <div class="row">
+                                                    <div class="col-md-6 mb-2"><label class="form-label">Hasło</label><input type="password" id="newUserPassword" class="form-control" required></div>
+                                                    <div class="col-md-6 mb-2"><label class="form-label">Rola</label>
+                                                        <select id="newUserRole" class="form-select">
+                                                            <option value="employee">Pracownik</option>
+                                                            <option value="manager">Menedżer</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3"><label class="form-label">Zespół (opcjonalnie)</label><select id="newUserTeam" class="form-select"></select></div>
+                                                <button type="submit" class="btn btn-primary w-100 btn-sm">Utwórz użytkownika</button>
+                                            </form>
+                                            <hr>
+                                            <h3 class="h6">Istniejący użytkownicy</h3>
+                                            <div class="table-responsive">
+                                                <table class="table table-dark table-striped table-sm align-middle">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>ID</th>
+                                                            <th>Login</th>
+                                                            <th>Rola / zespół</th>
+                                                            <th>Aktualny zespół</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="usersTableBody">
+                                                        <tr><td colspan="5" class="text-center text-body-secondary small">Brak danych</td></tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    // Oryginalny kod JS bez zmian
+    const state = {
+        accessToken: localStorage.getItem("accessToken"),
+        refreshToken: localStorage.getItem("refreshToken"),
+        user: JSON.parse(localStorage.getItem("userPayload") || "null"),
+        currentUser: null,
+        tasks: [],
+        selectedTask: null,
+        teams: [],
+        categories: [],
+        notifications: [],
+        priorities: [],
+        statuses: [],
+        users: [],
+        profiles: [],
+    };
+
+    const roleOptions = [
+        { value: "employee", label: "Pracownik" },
+        { value: "manager", label: "Menedżer" },
+    ];
+
+    const tasksActiveEl = document.getElementById("tasksActive");
+    const tasksArchivedEl = document.getElementById("tasksArchived");
+    const taskViewButtons = document.querySelectorAll("[data-task-view]");
+    const commentsListEl = document.getElementById("commentsList");
+    const commentForm = document.getElementById("commentForm");
+    const commentInfo = document.getElementById("commentInfo");
+    const notificationsListEl = document.getElementById("notificationsList");
+    const logArea = document.getElementById("activityLog");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const googleBtn = document.getElementById("googleBtn");
+    const refreshNotificationsBtn = document.getElementById("refreshNotificationsBtn");
+    const markAllNotificationsBtn = document.getElementById("markAllNotificationsBtn");
+    const adminPanel = document.getElementById("adminPanel");
+    const createUserForm = document.getElementById("createUserForm");
+    const usersTableBody = document.getElementById("usersTableBody");
+    const newUserTeamSelect = document.getElementById("newUserTeam");
+
+    function log(message, data) {
+        const time = new Date().toLocaleTimeString();
+        const details = data ? "\n" + JSON.stringify(data, null, 2) : "";
+        logArea.textContent = `[${time}] ${message}${details}\n` + logArea.textContent;
+    }
+
+    let toastInstance;
+    function showToast(message) {
+        const toastEl = document.getElementById("toast");
+        if (!toastInstance) {
+            toastInstance = new bootstrap.Toast(toastEl);
+        }
+        toastEl.querySelector('.toast-body').textContent = message;
+        toastInstance.show();
+    }
+
+    function setTaskView(view) {
+        const isActive = view === "active";
+        tasksActiveEl.classList.toggle("d-none", !isActive);
+        tasksArchivedEl.classList.toggle("d-none", isActive);
+        taskViewButtons.forEach(btn => {
+            const isCurrent = btn.dataset.taskView === view;
+            btn.classList.toggle("active", isCurrent);
+            btn.classList.toggle("btn-outline-primary", isCurrent);
+            btn.classList.toggle("btn-outline-secondary", !isCurrent);
+        });
+    }
+
+    taskViewButtons.forEach(btn => {
+        btn.addEventListener("click", () => setTaskView(btn.dataset.taskView));
+    });
+    setTaskView("active");
+
+    function updateUserInfo() {
+        const info = document.getElementById("userInfo");
+        const registerSection = document.getElementById("registerSection");
+        const authSection = document.getElementById("authSection");
+        const isLoggedIn = Boolean(state.user);
+        const isStaff = Boolean(state.currentUser?.is_staff);
+        if (isLoggedIn) {
+            const username = state.currentUser?.username || `ID: ${state.user.user_id}`;
+            info.textContent = `${username}${isStaff ? " (admin)" : ""}`;
+            logoutBtn.disabled = false;
+            refreshBtn.disabled = false;
+            googleBtn.disabled = false;
+            refreshNotificationsBtn.disabled = false;
+            markAllNotificationsBtn.disabled = false;
+            registerSection.classList.add("d-none");
+            authSection.classList.add("d-none");
+        } else {
+            info.textContent = "Nie zalogowano";
+            logoutBtn.disabled = true;
+            refreshBtn.disabled = true;
+            googleBtn.disabled = true;
+            refreshNotificationsBtn.disabled = true;
+            markAllNotificationsBtn.disabled = true;
+            registerSection.classList.remove("d-none");
+            authSection.classList.remove("d-none");
+        }
+        if (isLoggedIn && isStaff) {
+            adminPanel.classList.remove("d-none");
+        } else {
+            adminPanel.classList.add("d-none");
+        }
+    }
+
+    function saveAuthSession() {
+        if (state.accessToken) localStorage.setItem("accessToken", state.accessToken);
+        else localStorage.removeItem("accessToken");
+        if (state.refreshToken) localStorage.setItem("refreshToken", state.refreshToken);
+        else localStorage.removeItem("refreshToken");
+        if (state.user) localStorage.setItem("userPayload", JSON.stringify(state.user));
+        else localStorage.removeItem("userPayload");
+        updateUserInfo();
+    }
+
+    function decodeJwt(token) {
+        try {
+            return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+        } catch (err) {
+            log("Nie udało się sparsować tokena", err);
+            return null;
+        }
+    }
+
+    async function loadCurrentUser(retry = true) {
+        if (!state.accessToken) {
+            state.currentUser = null;
+            updateUserInfo();
+            return;
+        }
+        const response = await apiFetch("/api/me/", {}, retry);
+        if (response.ok) {
+            state.currentUser = await response.json();
+        } else {
+            state.currentUser = null;
+        }
+        updateUserInfo();
+        if (state.currentUser?.is_staff) {
+            await loadAdminData();
+        } else {
+            state.users = [];
+            state.profiles = [];
+            renderUsers();
+        }
+    }
+
+    async function apiFetch(path, options = {}, retry = true) {
+        if (!options.headers) options.headers = {};
+        if (state.accessToken) {
+            options.headers["Authorization"] = `Bearer ${state.accessToken}`;
+        }
+        if (options.body && !(options.body instanceof FormData)) {
+            options.headers["Content-Type"] = "application/json";
+        }
+        const response = await fetch(path, options);
+        if (response.status === 401 && retry && state.refreshToken) {
+            const refreshed = await refreshToken();
+            if (refreshed) return apiFetch(path, options, false);
+        }
+        return response;
+    }
+
+    async function refreshToken() {
+        if (!state.refreshToken) return false;
+        const response = await fetch("/api/token/refresh/", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ refresh: state.refreshToken })
+        });
+        if (!response.ok) {
+            log("Odświeżenie tokena nie powiodło się", await response.json());
+            state.accessToken = null;
+            state.refreshToken = null;
+            state.user = null;
+            saveAuthSession();
+            return false;
+        }
+        const data = await response.json();
+        state.accessToken = data.access;
+        state.user = decodeJwt(state.accessToken);
+        saveAuthSession();
+        await loadCurrentUser(false);
+        log("Token został odświeżony.");
+        showToast("Sesja została odświeżona.");
+        return true;
+    }
+
+    document.getElementById("registerForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const payload = {
+            username: document.getElementById("registerUsername").value,
+            email: document.getElementById("registerEmail").value,
+            password: document.getElementById("registerPassword").value,
+            role: document.getElementById("registerRole").value,
+        };
+        const response = await fetch("/api/register/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            log("Rejestracja nie powiodła się", data);
+            showToast(`Błąd rejestracji: ${JSON.stringify(data)}`);
+            return;
+        }
+        log("Utworzono konto. Możesz się zalogować.", data);
+        showToast("Konto zostało utworzone. Możesz się teraz zalogować.");
+        event.target.reset();
+    });
+
+    document.getElementById("loginForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+        const response = await fetch("/api/token/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+        });
+        if (!response.ok) {
+            log("Logowanie nie powiodło się", await response.json());
+            showToast("Logowanie nie powiodło się. Sprawdź dane.");
+            return;
+        }
+        const data = await response.json();
+        state.accessToken = data.access;
+        state.refreshToken = data.refresh;
+        state.user = decodeJwt(data.access);
+        saveAuthSession();
+        log("Zalogowano pomyślnie.");
+        showToast("Zalogowano pomyślnie!");
+        await loadCurrentUser();
+        await Promise.all([loadLookups(), loadTasks(), loadNotifications()]);
+    });
+
+    document.getElementById("taskForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!state.accessToken) return showToast("Najpierw zaloguj się");
+        const payload = {
+            title: document.getElementById("taskTitle").value,
+            description: document.getElementById("taskDescription").value,
+            assigned_to_id: Number(document.getElementById("taskAssignedId").value),
+            team_id: Number(document.getElementById("taskTeam").value),
+            due_date: new Date(document.getElementById("taskDue").value).toISOString(),
+            category_id: document.getElementById("taskCategory").value ? Number(document.getElementById("taskCategory").value) : null,
+            priority: document.getElementById("taskPriority").value,
+            status: document.getElementById("taskStatus").value,
+            tags: document.getElementById("taskTags").value.split(",").map(t => t.trim()).filter(Boolean)
+        };
+        if (!payload.category_id) delete payload.category_id;
+        const response = await apiFetch("/api/tasks/", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            log("Nie udało się utworzyć zadania", data);
+            showToast(`Błąd: ${JSON.stringify(data)}`);
+            return;
+        }
+        log("Utworzono zadanie", data);
+        showToast("Utworzono nowe zadanie.");
+        event.target.reset();
+        const collapseEl = document.getElementById("addTaskCollapse");
+        const collapseInstance = collapseEl ? bootstrap.Collapse.getInstance(collapseEl) : null;
+        if (collapseInstance) {
+            collapseInstance.hide();
+        }
+        await loadTasks();
+    });
+
+    document.getElementById("filterForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        await loadTasks();
+    });
+
+    commentForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!state.selectedTask) return;
+        const response = await apiFetch("/api/comments/", {
+            method: "POST",
+            body: JSON.stringify({
+                task: state.selectedTask,
+                content: document.getElementById("commentContent").value
+            })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            log("Nie udało się dodać komentarza", data);
+            showToast("Nie udało się dodać komentarza.");
+            return;
+        }
+        document.getElementById("commentContent").value = "";
+        log("Dodano komentarz", data);
+        await loadComments(state.selectedTask);
+    });
+
+    async function handleTaskAction(event) {
+        const btn = event.target.closest("button[data-action]");
+        if (!btn) return;
+        const taskId = Number(btn.dataset.id);
+        const action = btn.dataset.action;
+        if (action === "comments") {
+            state.selectedTask = taskId;
+            bootstrap.Collapse.getOrCreateInstance(commentForm).show();
+            await loadComments(taskId);
+            commentInfo.textContent = `Komentarze do zadania #${taskId}`;
+        } else if (action === "progress") {
+            await updateTaskStatus(taskId, "in_progress", `Zadanie #${taskId} ustawiono na "w trakcie".`);
+        } else if (action === "done") {
+            await updateTaskStatus(taskId, "done", `Zadanie #${taskId} zostało zakończone.`);
+        } else if (action === "sync") {
+            const response = await apiFetch(`/api/tasks/${taskId}/sync_calendar/`, { method: "POST" });
+            const data = await response.json();
+            if (!response.ok) {
+                log("Nie udało się zsynchronizować", data);
+                showToast(`Nie udało się zsynchronizować zadania #${taskId}.`);
+                return;
+            }
+            log(`Zadanie #${taskId} dodane do kalendarza`, data);
+            showToast(`Zadanie #${taskId} dodane do kalendarza Google.`);
+        }
+    }
+
+    tasksActiveEl.addEventListener("click", handleTaskAction);
+    tasksArchivedEl.addEventListener("click", handleTaskAction);
+
+    logoutBtn.addEventListener("click", () => {
+        state.accessToken = null;
+        state.refreshToken = null;
+        state.user = null;
+        state.currentUser = null;
+        state.users = [];
+        state.profiles = [];
+        saveAuthSession();
+        log("Wylogowano lokalnie.");
+        showToast("Zostałeś wylogowany.");
+        tasksActiveEl.innerHTML = "";
+        tasksArchivedEl.innerHTML = "";
+        commentsListEl.innerHTML = "";
+        notificationsListEl.innerHTML = "";
+        renderUsers();
+    });
+
+    refreshBtn.addEventListener("click", refreshToken);
+
+    googleBtn.addEventListener("click", async () => {
+        if (!state.accessToken) return showToast("Najpierw zaloguj się.");
+        try {
+            const response = await apiFetch("/api/google/auth-url/", { method: "POST" });
+            const data = await response.json();
+            if (!response.ok || !data.auth_url) {
+                log("Nie udało się przygotować autoryzacji Google", data);
+                showToast("Nie udało się rozpocząć integracji Google.");
+                return;
+            }
+            window.location.href = data.auth_url;
+        } catch (error) {
+            log("Błąd podczas inicjowania OAuth", error);
+            showToast("Błąd podczas łączenia z Google.");
+        }
+    });
+
+    refreshNotificationsBtn.addEventListener("click", loadNotifications);
+    markAllNotificationsBtn.addEventListener("click", async () => {
+        const response = await apiFetch("/api/notifications/mark_all_as_read/", { method: "POST" });
+        if (!response.ok) {
+            log("Nie udało się oznaczyć powiadomień", await response.json());
+            showToast("Błąd podczas oznaczania powiadomień.");
+            return;
+        }
+        log("Oznaczono wszystkie powiadomienia jako przeczytane.");
+        await loadNotifications();
+    });
+
+    notificationsListEl.addEventListener("click", async (event) => {
+        const btn = event.target.closest("button[data-notification]");
+        if (!btn) return;
+        const notifId = btn.dataset.notification;
+        const response = await apiFetch(`/api/notifications/${notifId}/mark-as-read/`, { method: "POST" });
+        if (!response.ok) {
+            log("Oznaczanie powiadomienia nie powiodło się", await response.json());
+            return;
+        }
+        log(`Powiadomienie #${notifId} oznaczone jako przeczytane.`);
+        await loadNotifications();
+    });
+
+    if (createUserForm) {
+        createUserForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            if (!ensureAdminAccess()) return;
+            const payload = {
+                username: document.getElementById("newUserUsername").value,
+                email: document.getElementById("newUserEmail").value,
+                password: document.getElementById("newUserPassword").value,
+                role: document.getElementById("newUserRole").value,
+            };
+            const teamValue = newUserTeamSelect?.value || "";
+            const response = await apiFetch("/api/register/", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                log("Nie udało się utworzyć użytkownika", data);
+                showToast("Tworzenie użytkownika nie powiodło się.");
+                return;
+            }
+            log("Utworzono nowego użytkownika", data);
+            createUserForm.reset();
+            if (newUserTeamSelect) newUserTeamSelect.value = "";
+            await loadProfiles();
+            if (teamValue) {
+                await updateUserProfile(data.id, payload.role, teamValue);
+            } else {
+                await loadUsers();
+                showToast("Utworzono nowego użytkownika.");
+            }
+        });
+    }
+
+    if (usersTableBody) {
+        usersTableBody.addEventListener("submit", async (event) => {
+            if (!event.target.classList.contains("user-update-form")) return;
+            event.preventDefault();
+            if (!ensureAdminAccess()) return;
+            const userId = Number(event.target.dataset.userId);
+            const roleValue = event.target.querySelector('select[name="role"]').value;
+            const teamValue = event.target.querySelector('select[name="team"]').value;
+            await updateUserProfile(userId, roleValue, teamValue);
+        });
+    }
+
+    document.getElementById("createCategoryForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!ensureAdminAccess()) return;
+        const payload = { name: document.getElementById("newCategoryName").value };
+        const response = await apiFetch("/api/categories/", { method: "POST", body: JSON.stringify(payload) });
+        const data = await response.json();
+        if (!response.ok) {
+            log("Nie udało się dodać kategorii", data);
+            showToast("Nie udało się dodać kategorii.");
+            return;
+        }
+        log("Dodano kategorię", data);
+        showToast("Dodano kategorię.");
+        event.target.reset();
+        await loadLookups();
+    });
+
+    document.getElementById("createTeamForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!ensureAdminAccess()) return;
+        const members = parseIdList(document.getElementById("newTeamMembers").value);
+        const payload = {
+            name: document.getElementById("newTeamName").value,
+            members,
+        };
+        const response = await apiFetch("/api/teams/", { method: "POST", body: JSON.stringify(payload) });
+        const data = await response.json();
+        if (!response.ok) {
+            log("Nie udało się dodać zespołu", data);
+            showToast("Nie udało się dodać zespołu.");
+            return;
+        }
+        log("Dodano zespół", data);
+        showToast("Zespół został utworzony.");
+        event.target.reset();
+        await loadLookups();
+    });
+
+    document.getElementById("createPriorityForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!ensureAdminAccess()) return;
+        const payload = {
+            value: normalizeSystemValue(document.getElementById("newPriorityValue").value),
+            label: document.getElementById("newPriorityLabel").value.trim(),
+        };
+        const response = await apiFetch("/api/priorities/", { method: "POST", body: JSON.stringify(payload) });
+        const data = await response.json();
+        if (!response.ok) {
+            log("Nie udało się dodać priorytetu", data);
+            showToast("Nie udało się dodać priorytetu.");
+            return;
+        }
+        log("Dodano priorytet", data);
+        showToast("Priorytet został dodany.");
+        event.target.reset();
+        await loadLookups();
+    });
+
+    document.getElementById("createStatusForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!ensureAdminAccess()) return;
+        const payload = {
+            value: normalizeSystemValue(document.getElementById("newStatusValue").value),
+            label: document.getElementById("newStatusLabel").value.trim(),
+        };
+        const response = await apiFetch("/api/statuses/", { method: "POST", body: JSON.stringify(payload) });
+        const data = await response.json();
+        if (!response.ok) {
+            log("Nie udało się dodać statusu", data);
+            showToast("Nie udało się dodać statusu.");
+            return;
+        }
+        log("Dodano status", data);
+        showToast("Status został dodany.");
+        event.target.reset();
+        await loadLookups();
+    });
+
+    async function loadLookups() {
+        if (!state.accessToken) return;
+        const [teamsResp, categoriesResp, statusesResp, prioritiesResp] = await Promise.all([
+            apiFetch("/api/teams/"),
+            apiFetch("/api/categories/"),
+            apiFetch("/api/statuses/"),
+            apiFetch("/api/priorities/"),
+        ]);
+        state.teams = teamsResp.ok ? await teamsResp.json() : [];
+        state.categories = categoriesResp.ok ? await categoriesResp.json() : [];
+        state.statuses = statusesResp.ok ? await statusesResp.json() : [];
+        state.priorities = prioritiesResp.ok ? await prioritiesResp.json() : [];
+        fillSelect("filterTeam", state.teams, true, "Dowolny zespół");
+        fillSelect("taskTeam", state.teams, false);
+        fillSelect("filterCategory", state.categories, true, "Dowolna kategoria");
+        fillSelect("taskCategory", state.categories, true, "Brak");
+        fillSelect("filterStatus", state.statuses, true, "Dowolny status", "value", "label");
+        fillSelect("filterPriority", state.priorities, true, "Dowolny priorytet", "value", "label");
+        fillSelect("taskStatus", state.statuses, false, undefined, "value", "label");
+        fillSelect("taskPriority", state.priorities, false, undefined, "value", "label");
+        fillSelect("newUserTeam", state.teams, true, "Brak", "id", "name");
+        setDefaultSelectValue(document.getElementById("taskStatus"), "todo");
+        setDefaultSelectValue(document.getElementById("taskPriority"), "medium");
+        document.getElementById("filterStatus").value = "";
+        document.getElementById("filterPriority").value = "";
+        renderUsers();
+    }
+
+    function fillSelect(elementId, items = [], allowEmpty, emptyLabel = "Dowolna", valueKey = "id", labelKey = "name") {
+        const select = document.getElementById(elementId);
+        if (!select) return;
+        select.innerHTML = "";
+        if (allowEmpty) {
+            const opt = document.createElement("option");
+            opt.value = "";
+            opt.textContent = emptyLabel;
+            select.appendChild(opt);
+        }
+        items.forEach((item) => {
+            const opt = document.createElement("option");
+            opt.value = item[valueKey];
+            opt.textContent = item[labelKey];
+            select.appendChild(opt);
+        });
+    }
+
+    function setDefaultSelectValue(select, preferredValue) {
+        if (!select || !select.options.length) return;
+        if (preferredValue && Array.from(select.options).some(opt => opt.value === preferredValue)) {
+            select.value = preferredValue;
+        } else {
+            select.selectedIndex = 0;
+        }
+    }
+
+    function getOptionLabel(options, value) {
+        const option = options.find(opt => opt.value === value);
+        return option ? option.label : value;
+    }
+
+    function parseIdList(raw) {
+        if (!raw) return [];
+        return raw
+            .split(",")
+            .map((v) => Number(v.trim()))
+            .filter((num) => Number.isInteger(num) && num > 0);
+    }
+
+    function normalizeSystemValue(value) {
+        return value.trim().toLowerCase().replace(/\s+/g, "_");
+    }
+
+    async function loadAdminData() {
+        if (!state.currentUser?.is_staff) {
+            state.users = [];
+            state.profiles = [];
+            renderUsers();
+            return;
+        }
+        await Promise.all([loadUsers(), loadProfiles()]);
+    }
+
+    async function loadUsers() {
+        if (!state.currentUser?.is_staff) {
+            state.users = [];
+            renderUsers();
+            return;
+        }
+        const response = await apiFetch("/api/users/");
+        state.users = response.ok ? await response.json() : [];
+        renderUsers();
+    }
+
+    async function loadProfiles() {
+        if (!state.currentUser?.is_staff) {
+            state.profiles = [];
+            return;
+        }
+        const response = await apiFetch("/api/profiles/");
+        state.profiles = response.ok ? await response.json() : [];
+        renderUsers();
+    }
+
+    function getProfileByUserId(userId) {
+        return state.profiles.find((profile) => profile.user?.id === userId);
+    }
+
+    function renderUsers() {
+        if (!usersTableBody) return;
+        if (!state.currentUser?.is_staff) {
+            usersTableBody.innerHTML = '<tr><td colspan="5" class="text-center text-body-secondary small">Tylko administrator może zarządzać użytkownikami.</td></tr>';
+            return;
+        }
+        if (!state.users.length) {
+            usersTableBody.innerHTML = '<tr><td colspan="5" class="text-center text-body-secondary small">Brak użytkowników.</td></tr>';
+            return;
+        }
+        usersTableBody.innerHTML = state.users.map((user) => {
+            const profile = getProfileByUserId(user.id);
+            const selectedRole = profile?.role || user.role || "employee";
+            const selectedTeam = profile?.team ?? "";
+            const roleSelect = roleOptions
+                .map(
+                    (opt) =>
+                        `<option value="${opt.value}" ${opt.value === selectedRole ? "selected" : ""}>${opt.label}</option>`
+                )
+                .join("");
+            const teamOptions = [
+                `<option value="" ${selectedTeam ? "" : "selected"}>Brak</option>`,
+                ...state.teams.map(
+                    (team) =>
+                        `<option value="${team.id}" ${Number(selectedTeam) === team.id ? "selected" : ""}>${team.name}</option>`
+                ),
+            ].join("");
+            return `
+                <tr>
+                    <td>${user.id}</td>
+                    <td>${user.username}</td>
+                    <td>
+                        <form class="user-update-form d-flex flex-column flex-sm-row gap-2" data-user-id="${user.id}">
+                            <select name="role" class="form-select form-select-sm">${roleSelect}</select>
+                            <select name="team" class="form-select form-select-sm">${teamOptions}</select>
+                            <button type="submit" class="btn btn-sm btn-outline-light">Zapisz</button>
+                        </form>
+                    </td>
+                    <td>${selectedTeam ? (state.teams.find((t) => t.id === Number(selectedTeam))?.name || "–") : "–"}</td>
+                </tr>
+            `;
+        }).join("");
+    }
+
+    async function updateUserProfile(userId, roleValue, teamValue) {
+        if (!state.currentUser?.is_staff) {
+            showToast("Brak uprawnień do edycji użytkowników.");
+            return;
+        }
+        const profile = getProfileByUserId(userId);
+        if (!profile) {
+            showToast("Nie znaleziono profilu użytkownika.");
+            return;
+        }
+        const payload = {
+            role: roleValue,
+            team: teamValue ? Number(teamValue) : null,
+        };
+        const response = await apiFetch(`/api/profiles/${profile.id}/`, {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+            const data = await response.json();
+            log("Nie udało się zaktualizować użytkownika", data);
+            showToast("Aktualizacja użytkownika nie powiodła się.");
+            return;
+        }
+        log(`Zaktualizowano użytkownika #${userId}`, payload);
+        await loadProfiles();
+        await loadUsers();
+    }
+
+    async function updateTaskStatus(taskId, statusValue, successMessage) {
+        const response = await apiFetch(`/api/tasks/${taskId}/`, {
+            method: "PATCH",
+            body: JSON.stringify({ status: statusValue }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            log("Zmiana statusu nie powiodła się", data);
+            showToast("Zmiana statusu nie powiodła się.");
+            return false;
+        }
+        log(successMessage, data);
+        showToast(successMessage);
+        await loadTasks();
+        return true;
+    }
+
+    function ensureAdminAccess() {
+        if (!state.currentUser?.is_staff) {
+            showToast("Ta akcja wymaga uprawnień administratora.");
+            return false;
+        }
+        return true;
+    }
+
+    async function loadTasks() {
+        if (!state.accessToken) {
+            tasksActiveEl.innerHTML = '<div class="text-center p-5 text-body-secondary">Aby zobaczyć zadania, zaloguj się.</div>';
+            tasksArchivedEl.innerHTML = '<div class="text-center p-5 text-body-secondary">Brak zadań.</div>';
+            return;
+        }
+        const params = new URLSearchParams();
+        const status = document.getElementById("filterStatus").value;
+        const priority = document.getElementById("filterPriority").value;
+        const team = document.getElementById("filterTeam").value;
+        const category = document.getElementById("filterCategory").value;
+        if (status) params.append("status", status);
+        if (priority) params.append("priority", priority);
+        if (team) params.append("team", team);
+        if (category) params.append("category", category);
+        const query = params.toString();
+        const url = `/api/tasks/${query ? `?${query}` : ""}`;
+        const response = await apiFetch(url);
+        if (!response.ok) {
+            tasksActiveEl.innerHTML = '<div class="text-center p-5 text-body-secondary">Nie udało się pobrać zadań.</div>';
+            tasksArchivedEl.innerHTML = '<div class="text-center p-5 text-body-secondary">Nie udało się pobrać zakończonych zadań.</div>';
+            log("Błąd ładowania zadań", await response.json());
+            return;
+        }
+        state.tasks = await response.json();
+        renderTasks();
+    }
+
+    function renderTasks() {
+        const activeTasks = state.tasks.filter(task => task.status !== "done");
+        const archivedTasks = state.tasks.filter(task => task.status === "done");
+        renderTaskCollection(activeTasks, tasksActiveEl, false);
+        renderTaskCollection(archivedTasks, tasksArchivedEl, true);
+    }
+
+    function renderTaskCollection(tasks, container, archived) {
+        if (!tasks.length) {
+            container.innerHTML = `<div class="text-center p-5 text-body-secondary">${archived ? "Brak zakończonych zadań." : "Brak zadań spełniających kryteria."}</div>`;
+            return;
+        }
+        container.innerHTML = tasks.map(task => {
+            const statusLabel = getOptionLabel(state.statuses, task.status);
+            const priorityLabel = getOptionLabel(state.priorities, task.priority);
+            const statusClass = task.status === 'done' ? 'success' : task.status === 'in_progress' ? 'info' : 'secondary';
+            const showProgress = !archived && task.status !== "in_progress" && task.status !== "done";
+            const showDone = !archived && task.status !== "done";
+            return `
+            <div class="card task-card mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="h6 card-title mb-1">#${task.id} • ${task.title}</h4>
+                            <small class="text-body-secondary">
+                                <i class="bi bi-people"></i> ${task.team?.name ?? "-"} | 
+                                <i class="bi bi-person"></i> ${task.assigned_to?.username ?? "nieznany"}
+                            </small>
+                        </div>
+                        <span class="badge rounded-pill text-bg-${statusClass}">${statusLabel}</span>
+                    </div>
+                    <p class="card-text small mt-2 mb-2">${task.description || "Brak opisu"}</p>
+                    <div class="d-flex justify-content-between small text-body-secondary">
+                        <span><i class="bi bi-calendar-event"></i> ${task.due_date ? new Date(task.due_date).toLocaleString() : "-"}</span>
+                        <span>${task.category?.name ?? "brak kategorii"} | <strong>${priorityLabel}</strong></span>
+                    </div>
+                    <div class="mt-2">
+                        ${(task.tags || []).map(tag => `<span class="badge bg-secondary bg-opacity-25 text-secondary-emphasis">${tag}</span>`).join(" ")}
+                    </div>
+                    <div class="actions text-end mt-2">
+                        <div class="btn-group btn-group-sm">
+                            <button data-action="comments" data-id="${task.id}" class="btn btn-outline-secondary"><i class="bi bi-chat-dots"></i> Komentarze</button>
+                            <button data-action="sync" data-id="${task.id}" class="btn btn-outline-secondary"><i class="bi bi-google"></i> Google Sync</button>
+                            ${showProgress ? `<button data-action="progress" data-id="${task.id}" class="btn btn-outline-info"><i class="bi bi-play-circle"></i> W trakcie</button>` : ""}
+                            ${showDone ? `<button data-action="done" data-id="${task.id}" class="btn btn-outline-success"><i class="bi bi-check2-circle"></i> Zakończ</button>` : ""}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        }).join("");
+    }
+
+    async function loadComments(taskId) {
+        const response = await apiFetch(`/api/comments/?task=${taskId}`);
+        if (!response.ok) {
+            commentsListEl.innerHTML = '<li class="list-group-item">Nie udało się pobrać komentarzy.</li>';
+            log("Błąd ładowania komentarzy", await response.json());
+            return;
+        }
+        const comments = await response.json();
+        if (!comments.length) {
+            commentsListEl.innerHTML = '<li class="list-group-item text-body-secondary small">Brak komentarzy dla tego zadania.</li>';
+            return;
+        }
+        commentsListEl.innerHTML = comments.map(c => `
+            <li class="list-group-item">
+                <div class="d-flex w-100 justify-content-between">
+                    <strong class="mb-1">${c.author}</strong>
+                    <small class="text-body-secondary">${new Date(c.created_at).toLocaleDateString()}</small>
+                </div>
+                <p class="mb-1 small">${c.content}</p>
+            </li>
+        `).join("");
+    }
+
+    async function loadNotifications() {
+        if (!state.accessToken) return;
+        const response = await apiFetch("/api/notifications/");
+        if (!response.ok) {
+            log("Nie udało się pobrać powiadomień", await response.json());
+            return;
+        }
+        state.notifications = await response.json();
+        renderNotifications();
+    }
+
+    function renderNotifications() {
+        if (!state.notifications.length) {
+            notificationsListEl.innerHTML = '<li class="list-group-item text-body-secondary small">Brak nowych powiadomień.</li>';
+            return;
+        }
+        notificationsListEl.innerHTML = state.notifications.map(n => `
+            <li class="list-group-item notification ${n.is_read ? "read" : "unread"}">
+                <div class="d-flex w-100 justify-content-between">
+                    <p class="mb-1 small">${n.message}</p>
+                    <small>${new Date(n.created_at).toLocaleDateString()}</small>
+                </div>
+                ${n.is_read ? "" : `<button data-notification="${n.id}" class="btn btn-sm btn-outline-primary mt-1">Oznacz jako przeczytane</button>`}
+            </li>
+        `).join("");
+    }
+
+    (async function bootstrap() {
+        updateUserInfo();
+        if (state.accessToken) {
+            await loadCurrentUser();
+            await Promise.all([loadLookups(), loadTasks(), loadNotifications()]);
+            log("Przywrócono sesję z localStorage.");
+        } else {
+            fillSelect("filterTeam", [], true, "Dowolny zespół");
+            fillSelect("taskTeam", [], false);
+            fillSelect("filterCategory", [], true, "Dowolna kategoria");
+            fillSelect("taskCategory", [], true, "Brak");
+            fillSelect("filterStatus", [], true, "Dowolny status", "value", "label");
+            fillSelect("filterPriority", [], true, "Dowolny priorytet", "value", "label");
+            fillSelect("taskStatus", [], false, undefined, "value", "label");
+            fillSelect("taskPriority", [], false, undefined, "value", "label");
+            fillSelect("newUserTeam", [], true, "Brak", "id", "name");
+            renderUsers();
+        }
+    })();
+    </script>
+</body>
+</html>

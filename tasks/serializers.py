@@ -1,6 +1,16 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Task, Team, Category, Comment, TaskLog, Profile, Notification
+from .models import (
+    Task,
+    Team,
+    Category,
+    Comment,
+    TaskLog,
+    Profile,
+    Notification,
+    TaskPriorityOption,
+    TaskStatusOption,
+)
 from taggit.serializers import TagListSerializerField, TaggitSerializer
 
 
@@ -30,7 +40,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class TaskSerializer(TaggitSerializer, serializers.ModelSerializer):
-    tags = TagListSerializerField()
+    tags = TagListSerializerField(required=False)
     assigned_to = UserSerializer(read_only=True)
     assigned_to_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), write_only=True, source='assigned_to'
@@ -44,10 +54,18 @@ class TaskSerializer(TaggitSerializer, serializers.ModelSerializer):
     category_id = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(), write_only=True, source='category'
     )
+
     def validate_status(self, value):
+        if not TaskStatusOption.objects.filter(value=value).exists():
+            raise serializers.ValidationError("Nieznany status zadania.")
         user = self.context['request'].user
         if value == 'done' and not user.is_staff:
             raise serializers.ValidationError("Tylko administrator może oznaczyć zadanie jako 'done'.")
+        return value
+
+    def validate_priority(self, value):
+        if not TaskPriorityOption.objects.filter(value=value).exists():
+            raise serializers.ValidationError("Nieznany priorytet zadania.")
         return value
     
     def create(self, validated_data):
@@ -126,6 +144,21 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 
 class NotificationSerializer(serializers.ModelSerializer):
+    task_id = serializers.IntegerField(source='task.id', read_only=True)
+
     class Meta:
         model = Notification
-        fields = ['id', 'message', 'created_at', 'read']
+        fields = ['id', 'message', 'is_read', 'created_at', 'task_id']
+        read_only_fields = ['id', 'created_at', 'task_id']
+
+
+class TaskPriorityOptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaskPriorityOption
+        fields = ['id', 'value', 'label', 'order']
+
+
+class TaskStatusOptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaskStatusOption
+        fields = ['id', 'value', 'label', 'order']
