@@ -32,7 +32,7 @@ Team Task Manager to aplikacja webowa oparta na Django REST Framework, umożliwi
 - [x] Filtrowanie i sortowanie
 - [x] Uprawnienia na poziomie zadań
 - [x] Dashboard z podsumowaniem zadań wg statusów
-- [ ] 🔜 Integracja z kalendarzami chmurowymi (Google / Outlook)
+- [x] Integracja z kalendarzami chmurowymi (Google / Outlook)
 
 ## Jak uruchomić projekt lokalnie
 
