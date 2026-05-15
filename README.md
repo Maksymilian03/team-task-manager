@@ -2,6 +2,10 @@
 
 Projekt stworzony w ramach pracy licencjackiej. Celem aplikacji jest umożliwienie efektywnego zarządzania zadaniami i zespołami projektowymi.
 
+## O Projekcie
+
+Projekt powstał w ramach pracy licencjackiej z dużym wsparciem AI, szczególnie po stronie frontendu. Obecnie piszę projekty samodzielnie, używając GitHub Copilot jedynie jako asystenta. Przykład: [F1-Stats](https://github.com/Maksymilian03/F1-Stats)
+
 ## Opis
 
 Team Task Manager to aplikacja webowa oparta na Django REST Framework, umożliwiająca:
